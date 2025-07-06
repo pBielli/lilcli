@@ -19,36 +19,10 @@
     }
   </style>
 </head>
-
 <body>
   <div id="terminal"></div>
-
   <script src="class.js"></script>
-  <script>
-var term= new WebTerminal({
-  user: "pat",
-  machineName: "pat-pc",
-  initialPosition: "~",
-  //  sysInfoFunction: () => "Personalizzata info sistema!",
-  //  motdFunction: () => "Benvenuto, Pat!",
-  // fileSystemData: {
-  //   "/": {
-  //     home: {
-  //       pat: {
-  //         "file.txt": "Contenuto del file"
-  //       }
-  //     }
-  //   }
-  // },
-  additionalCommands: {
-    date: function () {
-      this.echo(new Date().toString());
-    }
-  }
-});
-
-
-  </script>
+  <script src="init.js"></script>
 </body>
 
 </html>
