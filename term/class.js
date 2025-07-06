@@ -7,7 +7,9 @@ class WebTerminal {
         motdFunction = null,
         fileSystemData = null,
         fileSystemFilePath = "fileSystem.json",
-        additionalCommands = {}
+        additionalCommands = {},
+        startupPrint = `\n\nWelcome to your web terminal!\nType 'help' for a list of commands.\n`,
+        homePath = `/home/${user}`
     } = {}) {
         this.user = user;
         this.machineName = machineName;
@@ -16,11 +18,15 @@ class WebTerminal {
         this.motdFunction = motdFunction || this.defaultMotd;
         this.fileSystem = {};
         this.fileSystemFilePath = fileSystemFilePath;
-
+        this.startupPrint = startupPrint;
         this.commands = this.defaultCommands();
+        this.homePath = homePath;
         Object.assign(this.commands, additionalCommands); // aggiunta comandi extra
 
-        this.initFileSystem(fileSystemData).then(() => this.initTerminal());
+        this.initFileSystem(fileSystemData).then(() => {
+            this.initTerminal();
+        });
+
     }
 
     defaultMotd() {
@@ -151,9 +157,8 @@ class WebTerminal {
             },
             cd: function (val) {
                 const t = this.terminal;
-                if (!val || val === "~" || val === `/home/${t.user}`) {
-                    const homePath = `/home/${t.user}`;
-                    if (t.getNode(homePath)) t.position = "~";
+                if (!val || val === "~" || val === t.homePath) {
+                    if (t.getNode(t.homePath)) t.position = t.homePath;
                     else this.echo("cd: non esiste la directory home");
                     return;
                 }
@@ -161,10 +166,11 @@ class WebTerminal {
                 let newPos;
                 if (val === "/") newPos = "/";
                 else if (val.startsWith("/")) newPos = t.normalizePath(val);
-                else if (val === ".."||val === "../") {
+                else if (val === ".." || val === "../") {
                     let pos = t.position;
                     if (pos === "~") {
-                        pos = `/home/${t.user}`;}
+                        pos = t.homePath;
+                    }
                     const parts = pos.split("/");
                     parts.pop();
                     newPos = parts.join("/") || "/";
@@ -188,8 +194,9 @@ class WebTerminal {
                         option = t.position;
                         targetPath = t.position;
                     }
-                    if (option === "~")
-                        targetPath = `/home/${t.user}`;
+                    if (option == "~"){
+                        option = t.homePath;
+                        targetPath = option;}
                     else
                         targetPath = option.startsWith("/") ? option : t.normalizePath(t.position + "/" + option);
                 }
@@ -205,8 +212,8 @@ class WebTerminal {
                 if (!path) return this.echo("cat: file mancante");
 
                 let targetPath;
-                if (path === "~") targetPath = `/home/${t.user}`;
-                else targetPath = path.startsWith("/") ? path : t.normalizePath((t.position === "~" ? `/home/${t.user}` : t.position) + "/" + path);
+                if (path === "~") targetPath = t.homePath;
+                else targetPath = path.startsWith("/") ? path : t.normalizePath((t.position === "~" ? t.homePath : t.position) + "/" + path);
 
                 const node = t.getNode(targetPath);
                 if (!node) return this.echo(`cat: ${path}: File o directory non trovato`);
@@ -235,9 +242,9 @@ class WebTerminal {
                 term.echo(`Comando non trovato: ${command}`);
             }
         }, {
-            greetings: self.motdFunction(),
+            greetings: () => self.motdFunction() + self.startupPrint,
             name: 'web_unix',
-            prompt: () => `${self.user}@${self.machineName}:${self.position}$ `,
+            prompt: () => `${self.user}@${self.machineName}:${(self.position === `/home/${self.user}`) ? "~" : self.position}$ `,
             completion: function (line, callback) {
                 const parts = line.trim().split(/\s+/);
                 const cmd = parts[0];
