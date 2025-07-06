@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Terminale Ubuntu Simulato</title>
+  <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css" />
+  <style>
+    body {
+      background: #000;
+      color: #fff;
+      font-family: monospace;
+    }
+
+    .terminal-output {
+      white-space: pre;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="terminal"></div>
+
+  <script src="class.js"></script>
+  <script>
+var term= new WebTerminal({
+  user: "pat",
+  machineName: "pat-pc",
+  initialPosition: "~",
+  //  sysInfoFunction: () => "Personalizzata info sistema!",
+  //  motdFunction: () => "Benvenuto, Pat!",
+  // fileSystemData: {
+  //   "/": {
+  //     home: {
+  //       pat: {
+  //         "file.txt": "Contenuto del file"
+  //       }
+  //     }
+  //   }
+  // },
+  additionalCommands: {
+    date: function () {
+      this.echo(new Date().toString());
+    }
+  }
+});
+
+
+  </script>
+</body>
+
+</html>

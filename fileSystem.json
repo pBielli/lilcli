@@ -1,0 +1,20 @@
+{
+  "/": {
+    "home": {
+      "pat": {
+        "file1.txt": "content1",
+        "file2.log": "content2",
+        "docs": {
+          "readme.md": "doc content"
+        }
+      }
+    },
+    "var": {
+      "log": {
+        "syslog": "log content",
+        "kern.log": "kernel log"
+      }
+    },
+    "etc": {}
+  }
+}
