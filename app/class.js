@@ -13,7 +13,7 @@ class WebTerminal {
     } = {}) {
         this.user = user;
         this.machineName = machineName;
-        this.position = initialPosition;
+        this.position = (initialPosition=== "~") ? `/home/${user}` : initialPosition;
         this.sysInfoFunction = sysInfoFunction || this.defaultSysInfo;
         this.motdFunction = motdFunction || this.defaultMotd;
         this.fileSystem = {};
@@ -37,20 +37,73 @@ class WebTerminal {
             }, 250);
         });
     }
-collectPaths(fs, currentPath = this.position) {
-                let paths = [];
-
-                for (const key in fs) {
-                    const fullPath = `${currentPath}/${key}`.replace(/\/+/g, "/"); // normalizza i //
-                    if (typeof fs[key] === "object") {
-                        paths = paths.concat(this.collectPaths(fs[key], fullPath));
-                    } else {
-                        paths.push(fullPath);
-                    }
-                }
-
-                return paths;
+  suggestPaths(fs, currentPath, inputPath, relative = true) {
+    function getNode(path) {
+        const parts = path.replace(/^\/+|\/+$/g, "").split("/");
+        let node = fs["/"];
+        for (const part of parts) {
+            if (part === "") continue;
+            if (node && typeof node === "object" && part in node) {
+                node = node[part];
+            } else {
+                return null;
             }
+        }
+        return node;
+    }
+
+    // Risolvi inputPath: assoluto o relativo
+    let resolvedPath = inputPath.startsWith("/")
+        ? inputPath
+        : (currentPath === "/" ? "" : currentPath) + "/" + inputPath;
+
+    // Normalizza
+    resolvedPath = resolvedPath.replace(/\/+/g, "/");
+
+    const matches = [];
+
+    // Caso 1: input esatto che punta a una directory senza slash finale, suggerisci con slash
+    const node = getNode(resolvedPath.replace(/\/$/, ""));
+    if (node && typeof node === "object" && !resolvedPath.endsWith("/")) {
+        const suggestion = relative
+            ? resolvedPath.replace(/.*\//, "") + "/"
+            : resolvedPath + "/";
+        matches.push(suggestion);
+        return matches;
+    }
+
+    // Caso 2: input con slash finale -> suggerisci figli della dir
+    if (resolvedPath.endsWith("/")) {
+        const dirNode = getNode(resolvedPath.replace(/\/$/, ""));
+        if (!dirNode || typeof dirNode !== "object") return [];
+
+        for (const key in dirNode) {
+            const fullPath = resolvedPath + key;
+            matches.push(relative ? key : fullPath);
+        }
+
+        return matches;
+    }
+
+    // Caso 3: completamento normale (parziale)
+    const basePathParts = resolvedPath.split("/");
+    const prefix = basePathParts.pop(); // ultima parte (potrebbe essere incompleta)
+    const dirPath = basePathParts.join("/") || "/";
+    const dirNode = getNode(dirPath);
+    if (!dirNode || typeof dirNode !== "object") return [];
+
+    for (const key in dirNode) {
+        if (key.startsWith(prefix)) {
+            const fullPath = (dirPath === "/" ? "" : dirPath + "/") + key;
+            matches.push(relative ? key : fullPath);
+        }
+    }
+
+    return matches;
+}
+
+
+
     defaultMotd() {
         const now = new Date();
         const header = `Welcome to Ubuntu 24.04 LTS (GNU/Linux web-kernel x86_64)`;
@@ -283,71 +336,33 @@ collectPaths(fs, currentPath = this.position) {
             prompt: () => `${self.user}@${self.machineName}:${(self.position === `/home/${self.user}`) ? "~" : self.position}$ `,
             
             completion: function (line, callback, term=self) {
-                // Fai finta che line sia la riga completa. Log per capire cosa contiene.
-                console.log(term);
-
-                // Non usare trim qui, serve sapere se finisce con spazio
-                const parts = line.split(/\s+/).filter(Boolean);
+                let parts = line.split(/\s+/).filter(Boolean)||[""];
+                // console.log('line:', line);
+                // console.log('parts:', parts);
+                // let flag=!(parts.length === 0);
+                // if (!flag) {
+                //     console.log('term.position:', term.position);
+                //     parts=[term.position];
+                //     const paths = self.suggestPaths(self.fileSystem, self.position,cmd,flag);
+                //     return callback(allSuggestions);
+                // }
 
                 if (parts.length === 0) return callback([]);
 
                 const cmd = parts[0];
                 const arg = parts.length > 1 ? parts[parts.length - 1] : "";
-
+//debug da lavorare
+                console.log('cmd:', cmd, 'arg:', arg, 'parts:', parts);
+                var cmds=[];
                 if (parts.length === 1 && !line.endsWith(' ')) {
-                    // Completamento comando
-                    const cmds = Object.keys(self.commands).filter(c => c.startsWith(cmd));
-
-                    // Filtra in base al comando (cmd)
-                    console.log(this);
-
-                    const allPaths = self.collectPaths(self.fileSystem, self.position);
-                    const paths = cmd ? allPaths.filter(p => p.startsWith(cmd)) : [];
-                    this.echo(allPaths.join("\n"));
-
-                    if (cmds == 0)
-                        return callback(paths);
-                    else
-                        return callback(cmds.concat(paths));
-                }
-
-                // Completamento argomento (es. percorso dopo cd, ls, ecc.)
-                // Qui puoi anche filtrare i comandi che accettano path
-                // if (["cd", "ls", "cat", "rm"].includes(cmd)) {
-                //     let rawPath = arg || "";
-                //     let basePath;
-                //     let prefix = "";
-
-                //     if (rawPath.startsWith("/")) {
-                //         basePath = self.normalizePath(rawPath.replace(/\/[^\/]*$/, "") || "/");
-                //         prefix = rawPath.replace(/^.*\//, "");
-                //     } else if (rawPath.startsWith("~")) {
-                //         const rel = rawPath.substring(1).replace(/\/[^\/]*$/, "");
-                //         basePath = self.normalizePath(`/home/${self.user}/${rel}`);
-                //         prefix = rawPath.replace(/^.*\//, "");
-                //     } else {
-                //         const rel = rawPath.replace(/\/[^\/]*$/, "");
-                //         basePath = self.normalizePath((self.position === "~" ? `/home/${self.user}` : self.position) + "/" + rel);
-                //         prefix = rawPath.replace(/^.*\//, "");
-                //     }
-
-                //     const node = self.getNode(basePath);
-                //     if (!node || typeof node !== "object") return callback([]);
-
-                //     const suggestions = Object.keys(node)
-                //         .filter(name => name.startsWith(prefix))
-                //         .map(name => {
-                //             const isDir = typeof node[name] === "object";
-                //             const completed = rawPath.includes("/")
-                //                 ? rawPath.replace(/[^\/]*$/, '') + name + (isDir ? '/' : '')
-                //                 : name + (isDir ? '/' : '');
-                //             return completed;
-                //         });
-
-                //     return callback(suggestions);
-                // }
-
-                callback([]);
+                    cmds = Object.keys(self.commands).filter(c => c.startsWith(cmd));
+                
+                    let flag = arg.startsWith('/');
+                    const paths = self.suggestPaths(self.fileSystem, self.position,cmd,flag);
+                    const allSuggestions = cmds.concat(paths).sort();
+                    console.log('cmds:', cmds, 'paths:', paths);
+                    return callback(allSuggestions);}
+                    return callback([]); // se non è un comando, ritorna vuoto
             }
 
 
